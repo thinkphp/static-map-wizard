@@ -1,0 +1,311 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<title>Create your own static map</title>
+<link rel="stylesheet" href="css/reset.css" type="text/css">
+<link rel="stylesheet" href="css/base.css" type="text/css">
+<link rel="stylesheet" href="css/style.css" type="text/css">
+<script type="text/javascript" src="http://maps.google.com/maps?file=api&amp;v=2&amp;key=ABQIAAAAHFKkG2s1GKwMWvhsxH6UGhTsE91L0UkYXwp_YlL0uSAPtCVs5hTWKxoV6BCF8F8RGtpqa4IYPMkbcQ"></script> 
+<script type="text/javascript">
+  var map, geocoder;
+  var markers = [];
+  var colors = ['red', 'blue', 'green', 'yellow', 'orange', 'white', 'black', 'brown', 'purple', 'gray'];
+  var sizes = ['normal', 'mid', 'small', 'tiny'];
+  var currentMarkerIndex = -1;
+
+  function loadMap() {
+    if (GBrowserIsCompatible()) {
+        map = new GMap2(document.getElementById("map"));    
+        map.addControl(new GSmallMapControl());
+        map.addControl(new GScaleControl());
+        map.addControl(new GMapTypeControl());
+        map.setCenter(new GLatLng(44.435066885484744, 26.103429794311523), 13);
+        geocoder = new GClientGeocoder();
+    }
+  }//end function
+
+  function searchLocation(){
+
+    var address = $('term').value;
+
+    geocoder.getLatLng(address,function(point){
+
+             if(!point) {
+               alert(address + ' not found.');
+             } else {
+               map.setCenter(point,13);
+               var marker = new GMarker(point, {draggable: true}); 
+               map.addOverlay(marker);
+               markers.push(new myMarker(marker,address));               
+               updateMarkerList();  
+             }
+    });
+
+   return false;   
+  }
+
+  function myMarker(marker,search) {
+      this.marker = marker;
+      this.search = search;
+      this.size = 'normal';
+      this.color = "red";
+      this.character = '';
+  }
+
+  function updateMarkerList() {
+
+      var n = markers.length;
+      var s = "";
+      for(var i=0;i<n;i++) {
+
+          s += '<li>'+ markers[i].search + ' <img src="images/cog_edit.png" alt="" title="edit properties" onclick="editMarker('+i+')"> <img src="images/cross.png" alt="" title="delete marker" onclick="deleteMarker('+(i)+')"></li>';
+      }
+ 
+      $('markerlist').innerHTML = s;
+  } 
+
+  function closeCurrentMarker() {
+
+          if(currentMarkerIndex != -1) {
+
+                updateMarkerList();
+ 
+                var m = markers[currentMarkerIndex];
+
+                m.marker.setImage('images/red-dot.png');
+
+                currentMarkerIndex = -1; 
+          }
+  }
+
+  function editMarker(i, keep) {
+
+     if(currentMarkerIndex == i && !keep) {
+
+             closeCurrentMarker();
+
+     } else {
+
+       closeCurrentMarker();
+
+       var m = markers[i];
+
+       var li = $('markerlist').childNodes[i]; 
+
+       map.panTo(m.marker.getLatLng());
+
+       m.marker.setImage('images/red-dot-edit.png');
+
+       /* set up colors */
+       var c = "";
+       for(var j=0;j<colors.length;j++) {
+
+           var classcolor = (colors[j] == m.color) ? ' class="active"' : '';
+
+           c += '<a href="javascript:;" onclick="changeMarkerColor('+i+',\''+colors[j]+'\')"'+classcolor+'>'+colors[j]+'</a> '; 
+       }
+
+      /* set up sizea */
+       var s = "";
+       for(var j=0;j<sizes.length;j++) {
+
+           var classsize = (sizes[j] == m.size) ? ' class="active"' : '';
+
+           s += '<a href="javascript:;" onclick="changeMarkerSize('+i+',\''+sizes[j]+'\')"'+classsize+'>'+sizes[j]+'</a> '; 
+       }
+
+      /* set up charanters */
+      var z = '<select onchange="changeMarkerCharacter('+i+',this.options[this.selectedIndex].value)"><option value="">&nbsp;</option>';
+          z += '<option value="a">A</option><option value="b">B</option><option value="c">C</option><option value="d">D</option><option value="e">E</option><option value="f">F</option><option value="g">G</option><option value="h">H</option><option value="i">I</option><option value="j">J</option><option value="k">K</option><option value="l">L</option><option value="m">M</option><option value="n">N</option><option value="o">O</option><option value="p">P</option><option value="q">Q</option><option value="r">R</option><option value="s">S</option><option value="t">T</option><option value="u">U</option><option value="v">V</option><option value="w">W</option><option value="x">X</option><option value="y">Y</option><option value="z">Z</option>'.replace('"'+m.character+'"', '"'+m.character+'" selected="selected"');
+          z += '</select>'; 
+
+     li.innerHTML += '<div class="configMarker">'+
+                    '<p>color: '+c+'</p>'+
+                    '<p>size: '+s+'</p>'+
+                    '<p>Character: '+z+'</p>'+
+                    '</div>';
+
+     currentMarkerIndex = i;
+
+     }
+
+  }//end function
+
+  function changeMarkerColor(i,c) {
+           markers[i].color = c; 
+           editMarker(i,true);
+  }//end function
+
+  function changeMarkerSize(i,s) {
+          markers[i].size = s;
+          editMarker(i,true);
+  }//end function
+
+  function changeMarkerCharacter(i,c){
+           markers[i].character = c; 
+           editMarker(i,true);
+  }//end function
+
+  function deleteMarker(i) {
+      map.removeOverlay(markers[i].marker);
+      markers.splice(i,1);
+      updateMarkerList();
+  }//end function
+
+
+  function createMap() {
+
+      var apimap = 'http://maps.google.com/staticmap?';
+
+          if(!checkSizes()) {return false;}
+
+          apimap += 'size=' + $('mapsizew').value + 'x' + $('mapsizeh').value;
+
+          //append Type map
+          apimap += ($('maptype').value != 'roadmap') ? '&maptype=' + $('maptype').value : '';
+
+          //append Format map
+          apimap += ($('mapformat').value != 'gif') ? '&format=' + $('mapformat').value : '';
+
+          //append Markers
+
+          if(markers.length > 0) {
+
+            if(markers.length == 1) {
+                 apimap += '&center='+map.getCenter().lat()+','+map.getCenter().lng();
+                 apimap += '&zoom=' + map.getZoom();
+            }
+
+            apimap += '&markers=';
+
+            var n = markers.length;
+
+            for(var i=0;i<n;i++) {
+
+                var m = markers[i];
+
+                var latlng = m.marker.getLatLng();
+
+                if(m.size == 'tiny' || m.size == 'small') {
+
+                     var options = (m.size != 'normal' ? m.size : '' ) + ((m.color != 'red') ? m.color : '');     
+
+                } else {
+
+                     var options = (m.size != 'normal') ? m.size : '';
+
+                         options += ((m.color != 'red' || m.character != '') ? m.color + m.character.toLowerCase() : '');
+                }
+
+                apimap += latlng.lat() + ',' + latlng.lng() + ',' + options + ((i < n - 1) ? '|' : ''); 
+
+            }//end for
+               
+          //otherwise use the map data instead
+          } else {
+               apimap += '&center=' + map.getCenter().lat() + ',' + map.getCenter().lng();
+               apimap += '&zoom=' + map.getZoom(); 
+          }
+
+          var maplinkpre = apimap + '&key=ABQIAAAAHFKkG2s1GKwMWvhsxH6UGhT31Sqdr1iMbgcfgd36_cHBTNb4GxTM-5GlCegdpzSsulvA2GKSzWJsmA';
+              if(window.console) {console.log(maplinkpre);}
+              apimap += '&key=YOUR_API_KEY_HERE';
+
+              $('result').innerHTML = '<p><img src="'+maplinkpre+'" alt="static map preview" /></p><p><input id="staticmapurl" type="text" value="'+apimap+'"></p>';
+
+              $('staticmapurl').focus();
+
+              $('staticmapurl').select();
+
+  }//end function
+
+  function $(id) {return document.getElementById(id);}
+
+  function checkSizes() {
+
+      var width = parseInt($('mapsizew').value);  
+      var height = parseInt($('mapsizeh').value);  
+
+     return(width && height && height > 0 && width > 0 && width <= 512 && height <= 512);
+  }//end function
+
+  window.onload = function(){
+         loadMap();
+         $('creator').onclick = function() {
+            createMap();
+         }
+         $('f').onsubmit = function() {
+                searchLocation();
+            return false;
+         }
+  };
+  </script>  
+</head>
+<body>
+<div id="doc2" class="yui-t7">
+   <div id="hd" role="banner"><h1>Create Your Own Static Map</h1></div>
+   <p class="smallhead">a service brought to you by <a href="http://thinkphp.ro">thinkphp.ro</a></p>
+   <div id="bd" role="main">
+      <h2>Input</h2>        
+      <p>Simply find the location where you want a marker to be added to your static map through the search box and justify it by dragging it around, if necessary.
+      You will find an additional entry in the marker list besides the dynamic map for every search you make. Edit your marker's properties (color,size,character) OR completelty remove them.</p>
+      <p>When you've finished adding markers to the map, hit the button with label 'create static map' and you should see a preview of your map and an URL to embed your brand new Static Map on your website.</p>
+   <div class="yui-gc">
+      <h2>The Static Map Wizard</h2>        
+     <div class="yui-u first" id="mapwrap">
+          <h3>Map</h3>
+          <div id="map" style="width: 580px;height:400px;border: 1px solid #999"></div>
+     </div>
+     <div class="yui-u" id="right-pane">
+          <h3>Search</h3>
+            <form method="get" action="" id="f">
+              <input type="text" name="term" id="term" value="Bucharest, piata muncii"/>
+              <input type="submit" id="search" value="Search Location"/>
+            </form>
+          <h3>Markers</h3>
+          <ol id="markerlist">
+          </ol>
+     </div>
+   </div>
+
+   <div class="yui-g" id="properties">
+        <h3>Properties</h3>
+        <ul>
+           <li>Size: <input type="text" id="mapsizew" value="400" />x<input type="text" id="mapsizeh" value="400" /> <small>width x height in px</small> <strong>maximum of 512x512 !</strong></li>
+           <li>Type: <select id="maptype">
+                        <option value="roadmap">roadmap</option>
+                        <option value="satellite">satellite</option>
+                        <option value="hybrid">hybrid</option>
+                        <option value="terrain">terrain</option>
+                        <option value="mobile">mobile</option>
+                     </select>
+           </li>
+            <li>format: <select id="mapformat">
+                         <option value="gif">gif</option>
+                         <option value="jpg">jpg</option>
+                         <option value="png32">png32</option>
+                         <option value="jpg-baseline">jpg-baseline</option>
+                         <option value="png8">png8</option>
+                        </select> <small>format of the resulting image</small>
+            </li>
+        </ul> 
+   </div>
+
+   <div class="yui-g">
+
+        <div id="submit">
+          <input type="button" value="Create Static Map" id="creator"/>
+        </div>
+
+   </div>
+   <div class="yui-g">
+      <h2>Output: your Static Map</h2>        
+      <div id="result">
+        <p>Use the creator above to create a Static Map.</p>
+      </div>
+   </div>
+ </div>
+<div id="ft" role="contentinfo"><p>&copy; 2010 by <a href="http://thinkphp.ro">Adrian Statescu</a> using YUI and Google Maps API</p></div>
+</div>
+</body>
+</html>
